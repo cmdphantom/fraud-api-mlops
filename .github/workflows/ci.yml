@@ -73,7 +73,16 @@ jobs:
       - name: Test Docker image locally
         run: |
           docker run --rm -d --name fraud-api-test -p 8000:8000 ${{ env.IMAGE_NAME }}:latest
-          sleep 10
+          # Wait for API to be ready with retries
+          for i in {1..30}; do
+            if curl -f http://localhost:8000/ 2>/dev/null; then
+              echo "API is ready!"
+              break
+            fi
+            echo "Waiting for API to start... (attempt $i/30)"
+            sleep 2
+          done
+          # Final check
           curl -f http://localhost:8000/ || (docker logs fraud-api-test && exit 1)
           curl -f -X POST http://localhost:8000/predict \
             -H "Content-Type: application/json" \
