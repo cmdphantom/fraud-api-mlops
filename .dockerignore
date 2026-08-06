@@ -1,0 +1,28 @@
+# Ce qui ne monte jamais dans le contexte de construction. Troisième livrable
+# de la mission, et le sujet de l'étape 4.
+#
+# Ce fichier est lu par le démon AVANT la première ligne du Dockerfile : rien
+# de ce qui est listé ici ne peut atterrir dans une couche, ni même être envoyé
+# au moteur.
+#
+# ⚠ Sur CE projet, ce n'est pas une formalité. Le jeu de données pèse 151 Mo
+#   pour 284 807 transactions. Sans ce fichier, chaque build commence par
+#   l'expédier au démon — pour rien : l'image n'en a pas besoin, elle sert un
+#   modèle déjà entraîné.
+#
+# TODO : complète la liste.
+#
+#   - le jeu de données
+#   - l'environnement virtuel local (deux noms possibles selon l'outil)
+#   - l'historique Git
+#   - le cache de Python
+#
+# ⚠ La subtilité : les motifs de ce fichier ne sont PAS récursifs. Un
+#   __pycache__/ tout seul ne filtre que celui de la racine et laisse passer
+#   ceux des sous-dossiers. Le double astérisque compte.
+
+data/
+.git/
+.venv/
+venv/
+**/__pycache__/
