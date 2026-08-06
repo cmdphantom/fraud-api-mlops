@@ -20,9 +20,9 @@ COPY requirements.txt .
 
 # --prefix installe tout dans un seul dossier, qu'on emportera tel quel.
 # Install numpy first to pin the version before pandas pulls a newer one
-# Model was pickled with numpy >=1.25 (has numpy._core), so use numpy 1.24.3
+# Model was pickled with numpy >=1.25 (has numpy._core), so use numpy 1.26.4 (last 1.x with numpy._core)
 ENV PIP_PROGRESS_BAR=off
-RUN pip install --no-cache-dir --prefix=/install numpy==1.24.3
+RUN pip install --no-cache-dir --prefix=/install numpy==1.26.4
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ─── image livrée ─────────────────────────────────────────────────────────────
