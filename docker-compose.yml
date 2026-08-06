@@ -1,0 +1,34 @@
+# Le fichier de composition. Quatrième livrable de la mission, et le sujet de
+# l'étape 7.
+#
+# Un seul service, et c'est volontaire. Ce fichier n'est pas là pour orchestrer
+# une foule : il est là pour qu'UNE SEULE commande mette le système debout,
+# sans que personne ait à se souvenir des drapeaux du docker run.
+#
+#   docker compose up   remplace   docker run -d -p … --name … image
+#
+# C'est le premier critère de la mission, et le seul qui compte lundi matin.
+#
+# ⚠ Aucun volume ici, et ce n'est pas un oubli. Cette API ne conserve rien :
+#   elle charge un modèle au démarrage et répond. Un service sans état se
+#   détruit et se relance sans rien perdre — c'est ce qui le rend facile à
+#   déplacer, à dupliquer, à redémarrer. Le jour où il écrira quelque chose
+#   qui doit survivre, il faudra un volume ; pas avant.
+
+services:
+  api:
+    # TODO : construire depuis ce dossier, et nommer l'image obtenue.
+    #        Deux clés : l'une dit d'où vient l'image, l'autre comment
+    #        l'appeler. Le nom attendu est écrit dans le README.
+    build: .
+    image: fraud-api:1.0
+
+    # TODO : publier le port. À gauche ta machine, à droite le conteneur.
+    #        Le sens de lecture est toujours dehors → dedans.
+    ports:
+      - "8000:8000"
+
+    # Redémarre le conteneur s'il s'arrête tout seul, mais pas si TU l'arrêtes.
+    # Rien à compléter : c'est le réglage raisonnable par défaut, et il est ici
+    # pour que tu saches qu'il existe.
+    restart: unless-stopped
