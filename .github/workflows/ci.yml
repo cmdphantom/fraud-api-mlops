@@ -75,6 +75,12 @@ jobs:
           docker run --rm -d --name fraud-api-test -p 8000:8000 ${{ env.IMAGE_NAME }}:latest
           # Wait for API to be ready with retries
           for i in {1..30}; do
+            # Check if container is still running
+            if ! docker ps | grep -q fraud-api-test; then
+              echo "Container stopped unexpectedly!"
+              docker logs fraud-api-test
+              exit 1
+            fi
             if curl -f http://localhost:8000/ 2>/dev/null; then
               echo "API is ready!"
               break
@@ -83,10 +89,18 @@ jobs:
             sleep 2
           done
           # Final check
-          curl -f http://localhost:8000/ || (docker logs fraud-api-test && exit 1)
-          curl -f -X POST http://localhost:8000/predict \
+          if ! curl -f http://localhost:8000/; then
+            echo "API health check failed!"
+            docker logs fraud-api-test
+            exit 1
+          fi
+          if ! curl -f -X POST http://localhost:8000/predict \
             -H "Content-Type: application/json" \
-            -d @fraud_example.json || (docker logs fraud-api-test && exit 1)
+            -d @fraud_example.json; then
+            echo "API prediction test failed!"
+            docker logs fraud-api-test
+            exit 1
+          fi
           docker stop fraud-api-test
 
   # Job 3: Push to Docker Hub
