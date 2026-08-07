@@ -23,6 +23,8 @@ spec:
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow:5000"
           resources:
             requests:
               memory: "256Mi"
@@ -41,4 +43,48 @@ spec:
               path: /
               port: 8000
             initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  labels:
+    app: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v2.19.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          # ghcr.io/mlflow/mlflow:v2.19.0 already has ENTRYPOINT ["mlflow", "server"]
+          # Default args are --host 0.0.0.0 --port 5000, so no command needed
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
             periodSeconds: 5

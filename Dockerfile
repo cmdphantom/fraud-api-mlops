@@ -56,8 +56,6 @@ USER appuser
 EXPOSE 8000
 
 # Default command runs the API server
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
-
 # TODO : la commande qui démarre le service. Forme JSON.
 #
 # ⚠ LIS api.py AVANT D'ÉCRIRE CETTE LIGNE. Sa dernière ligne lance uvicorn sur

@@ -16,32 +16,136 @@
 #   qui doit survivre, il faudra un volume ; pas avant.
 
 services:
+  # PostgreSQL - MLflow backend store
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - MLflow artifact store
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Create MinIO bucket for MLflow artifacts
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc config host add minio http://minio:9000 minioadmin minioadmin) do echo '...waiting...' && sleep 1; done;
+      /usr/bin/mc mb minio/mlflow --ignore-existing;
+      echo 'Bucket created';
+      exit 0;
+      "
+    restart: "no"
+
+  # MLflow with PostgreSQL backend and MinIO artifact store
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.19.0
     ports:
       - "5001:5000"
-    command: mlflow server --host 0.0.0.0 --port 5000
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow
+      --default-artifact-root s3://mlflow/
+      --artifacts-destination s3://mlflow/
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
     restart: unless-stopped
 
+  # Airflow for orchestration
+  airflow-webserver:
+    image: apache/airflow:2.8.0-python3.10
+    entrypoint: /bin/bash
+    command: -c "airflow db upgrade && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && airflow webserver"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: your-secret-key-change-in-production
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+      - ./dags:/opt/airflow/dags
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.0-python3.10
+    entrypoint: /bin/bash
+    command: -c "airflow db upgrade && airflow scheduler"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: your-secret-key-change-in-production
+    volumes:
+      - airflow_logs:/opt/airflow/logs
+      - ./dags:/opt/airflow/dags
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_started
+    restart: unless-stopped
+
+  # Fraud Detection API
   api:
-    # TODO : construire depuis ce dossier, et nommer l'image obtenue.
-    #        Deux clés : l'une dit d'où vient l'image, l'autre comment
-    #        l'appeler. Le nom attendu est écrit dans le README.
     build: .
     image: fraud-api:1.0
-
-    # TODO : publier le port. À gauche ta machine, à droite le conteneur.
-    #        Le sens de lecture est toujours dehors → dedans.
     ports:
       - "8000:8000"
-
-    # MLflow tracking URI for experiment tracking
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
-
-    # Redémarre le conteneur s'il s'arrête tout seul, mais pas si TU l'arrêtes.
-    # Rien à compléter : c'est le réglage raisonnable par défaut, et il est ici
-    # pour que tu saches qu'il existe.
-    restart: unless-stopped
     depends_on:
       - mlflow
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:
+  airflow_logs:
