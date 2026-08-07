@@ -16,6 +16,13 @@
 #   qui doit survivre, il faudra un volume ; pas avant.
 
 services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    ports:
+      - "5001:5000"
+    command: mlflow server --host 0.0.0.0 --port 5000
+    restart: unless-stopped
+
   api:
     # TODO : construire depuis ce dossier, et nommer l'image obtenue.
     #        Deux clés : l'une dit d'où vient l'image, l'autre comment
@@ -28,7 +35,13 @@ services:
     ports:
       - "8000:8000"
 
+    # MLflow tracking URI for experiment tracking
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+
     # Redémarre le conteneur s'il s'arrête tout seul, mais pas si TU l'arrêtes.
     # Rien à compléter : c'est le réglage raisonnable par défaut, et il est ici
     # pour que tu saches qu'il existe.
     restart: unless-stopped
+    depends_on:
+      - mlflow

@@ -6,6 +6,11 @@
 #
 # La forme ci-dessous est celle de l'étape 6. Pour l'étape 3, ignore le premier
 # étage et installe les dépendances directement dans l'image finale.
+#
+# This unified Dockerfile supports two modes:
+#   - API server (default): runs the FastAPI fraud detection service
+#   - MLflow logger: runs the script to log model to MLflow
+# Usage: docker run --entrypoint python fraud-api:1.0 log_to_mlflow.py
 
 # ─── étage atelier ────────────────────────────────────────────────────────────
 # TODO : une base Python légère, version figée. L'API demande Python 3.10 ou
@@ -39,6 +44,7 @@ COPY --from=builder /install /usr/local
 #        plus — le reste du dossier n'a rien à faire dans une image.
 COPY api.py .
 COPY model.pkl .
+COPY log_to_mlflow.py .
 
 # TODO : le programme ne doit pas tourner en administrateur. Crée un
 #        utilisateur, puis bascule dessus.
@@ -48,6 +54,9 @@ USER appuser
 # EXPOSE ne publie rien : c'est une note pour qui lit l'image. Seul le -p d'un
 # docker run, ou le ports: du compose, branche vraiment un port.
 EXPOSE 8000
+
+# Default command runs the API server
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # TODO : la commande qui démarre le service. Forme JSON.
 #
